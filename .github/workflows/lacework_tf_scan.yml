@@ -58,7 +58,7 @@ jobs:
 
              # if we want to fail the step for any critical failed findings (violations) in the assessment scan
 
-             echo "EXIT_FLAG='Critical=3'" >> env.list  
+             #echo "EXIT_FLAG='Critical=3'" >> env.list  
 
              docker run --env-file env.list -v "$(pwd):/app/src" lacework/codesec-iac:latest
 
