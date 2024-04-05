@@ -22,6 +22,7 @@ env:
   LW_ACCOUNT_NAME: ${{ secrets._LW_ACCOUNT_NAME }}
   LW_API_KEY: ${{ secrets.LW_API_KEY }}
   LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
+  LW_SUBACCOUNT: ${{ secrets.LW_SUBACCOUNT }}
 
 name: Lacework Code Analysis (PR)
 jobs:
