@@ -22,7 +22,7 @@ jobs:
 
       # Step 2: Check out the source branch (head of the pull request) 
       - name: Checkout source branch 
-        uses: actions/checkout@v3  # Use the checkout action to pull the source branch code 
+        uses: actions/checkout@v4  # Use the checkout action to pull the source branch code 
         with: 
           ref: ${{ github.event.pull_request.head.ref }}  # Reference the source branch of the pull request 
           token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token for authentication 
@@ -34,7 +34,7 @@ jobs:
 
       # Step 4: Check out the target branch of the pull request 
       - name: Checkout target branch 
-        uses: actions/checkout@v3  # Use the checkout action to pull the target branch code 
+        uses: actions/checkout@v4  # Use the checkout action to pull the target branch code 
         with: 
           ref: ${{ github.event.pull_request.base.ref }}  # Reference the target branch of the pull request 
           token: ${{ secrets.GITHUB_TOKEN }}  # Use the GitHub token for authentication 
@@ -52,7 +52,7 @@ jobs:
 
       # Step 7: Upload the SARIF file for analysis or further use 
       - name: Upload SARIF File 
-        uses: actions/upload-artifact@v3  # Use the upload artifact action to save the SARIF file 
+        uses: actions/upload-artifact@v4  # Use the upload artifact action to save the SARIF file 
         with: 
           name: lacework-comparison-report  # Name of the uploaded artifact 
           path: /tmp/lacework-comparison.sarif  # Path to the SARIF file
