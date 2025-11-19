@@ -41,3 +41,14 @@ jobs:
         uses: lacework/code-security-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+  push-results:
+    runs-on: ubuntu-latest
+    name: Run analysis
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Analyze
+        uses: lacework/code-security-action@v1
+        with:
+          target: push          
