@@ -48,3 +48,14 @@ default:
             scr: true
             secret: true
             vulnEvaluation: true
+            exitConditions:
+                any:
+                    - attribute: severity
+                      operator: '>'
+                      threshold: 0
+                      value: critical
+                    - attribute: severity
+                      operator: '>'
+                      threshold: 0
+                      value: high
+                enabled: true        
