@@ -11,7 +11,7 @@ terraform {
 
 resource "aws_security_group" "bad_example" {
   name        = "bad_example_sg"
-  description = "Unrestricted bad sec Group - updated for testing"
+  description = "Unrestricted bad sec Group - verifying Lacework comments"
   vpc_id      = aws_vpc.main.id
 
   ingress {
