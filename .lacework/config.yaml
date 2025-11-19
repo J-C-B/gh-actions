@@ -2,7 +2,7 @@ default:
     iac:
         enabled: true
         pullRequest:
-            auditMode: false
+            auditMode: true
             commentOnlyHighAndCritical: false
             comments: true
         scan:
