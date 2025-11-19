@@ -18,9 +18,6 @@ jobs:
   run-analysis:
     runs-on: ubuntu-latest
     name: Run analysis
-    strategy:
-      matrix:
-        target: [new, old]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -28,14 +25,3 @@ jobs:
         uses: lacework/code-security-action@v1
         with:
           target: push
-  display-results:
-    runs-on: ubuntu-latest
-    name: Display results
-    needs:
-      - run-analysis
-    steps:
-      - name: Results
-        id: code-analysis
-        uses: lacework/code-security-action@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}  
