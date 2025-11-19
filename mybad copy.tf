@@ -7,7 +7,7 @@ terraform {
   }
 }
 
-# Test change for PR scanning
+# Test change for PR scanning - testing comments v2
 
 resource "aws_security_group" "bad_example" {
   name        = "bad_example_sg"
