@@ -25,3 +25,14 @@ jobs:
         uses: lacework/code-security-action@v1
         with:
           target: push
+  display-results:
+    runs-on: ubuntu-latest
+    name: Display results
+    needs:
+      - run-analysis
+    steps:
+      - name: Results
+        id: code-analysis
+        uses: lacework/code-security-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}  
