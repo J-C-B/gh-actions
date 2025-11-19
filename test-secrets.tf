@@ -1,5 +1,6 @@
 # Test file for secret detection
 # This file contains fake AWS credentials for testing purposes
+# Testing manual PR comment posting v5
 
 variable "aws_access_key_id" {
   description = "AWS Access Key ID"
