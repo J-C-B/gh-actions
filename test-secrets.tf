@@ -1,6 +1,6 @@
 # Test file for secret detection
 # This file contains fake AWS credentials for testing purposes
-# Testing native Lacework PR comments with token input (v8)
+
 
 variable "aws_access_key_id" {
   description = "AWS Access Key ID"
