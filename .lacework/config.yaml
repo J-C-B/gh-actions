@@ -1,50 +1,55 @@
-default:
-    iac:
-        enabled: true
-        pullRequest:
-            auditMode: false
-            commentOnlyHighAndCritical: false
-            comments: true
-        scan:
-            autofix: true
-            checkov: true
-            checkovModuleDownload: false
-            cloudformation: true
-            dockerfile: true
-            exceptions: []
-            exitConditions:
-                any:
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: critical
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: high
-                enabled: true
-            helm: true
-            kubernetes: true
-            kustomize: true
-            opal: true
-            terraform: true
-            terraformPlan: true
-            tfsec: true
-    sca:
-        enabled: true
-        pullRequest:
-            auditMode: false
-            commentOnlyHighAndCritical: false
-            comments: true
-        scan:
-            acf: false
-            acfLocations: 5
-            acfLocationsFull: []
-            exceptions: []
-            gitHistory: false
-            licenseDetection: true
-            linesOfCode: true
-            sast: true
-            scr: true
-            secret: true
-            vulnEvaluation: true
+name: Lacework Code Security (PR)
+
+on: 
+  - pull_request
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_DEV5 }}
+  LW_API_KEY: ${{ secrets.LW_API_KEY_DEV5 }}
+  LW_API_SECRET: ${{ secrets.LW_API_SECRET_DEV5 }}
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    name: Run analysis
+    strategy:
+      matrix:
+        target: [new, old]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '24'
+
+      - name: Checkout old
+        if: ${{ matrix.target == 'old' }}
+        run: git checkout HEAD^1
+
+      - name: Compile code
+        run: mvn --quiet clean compile
+
+      - name: Run code analysis
+        uses: lacework/code-security-action@v1
+        with:
+          target: ${{ matrix.target }}
+
+  display-results:
+    runs-on: ubuntu-latest
+    name: Display Code Security results
+    needs:
+      - run-analysis
+    steps:
+      - name: Results
+        uses: lacework/code-security-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
