@@ -4,80 +4,95 @@
 
 variable "aws_access_key_id" {
   description = "AWS Access Key ID"
-  default     = "AKIAEXAMPLE123456789"
+  default     = "AKIAUPDATED123456789"
   sensitive   = true
 }
 
 variable "aws_secret_access_key" {
   description = "AWS Secret Access Key"
-  default     = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY123"
+  default     = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYUPDATEDKEY456"
   sensitive   = true
 }
 
 # Example usage in a provider block
 provider "aws" {
-  access_key = "AKIAEXAMPLE123456789"
-  secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY123"
-  region     = "us-west-2"
+  access_key = "AKIAUPDATED123456789"
+  secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYUPDATEDKEY456"
+  region     = "eu-west-1"
 }
 
 # Another example in a resource
 resource "aws_instance" "test" {
   ami           = "ami-98765432"
-  instance_type = "t3.medium"
+  instance_type = "t3.large"
   
   # Hardcoded credentials (bad practice)
   user_data = <<-EOF
-    export AWS_ACCESS_KEY_ID=AKIAEXAMPLE123456789
-    export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY123
+    export AWS_ACCESS_KEY_ID=AKIAUPDATED123456789
+    export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYUPDATEDKEY456
   EOF
 }
 
 # New secrets for testing - using fake patterns that won't trigger GitHub push protection
 resource "aws_s3_bucket" "test_bucket" {
-  bucket = "test-bucket-new-54321"
+  bucket = "test-bucket-updated-99999"
   
   # GitHub token example (fake pattern)
   tags = {
-    github_token = "ghp_FAKETESTTOKEN1234567890abcdefghijklmnopqrstuvwxyzNOTREAL"
-    test_api_key = "test_key_NOTREALFAKE1234567890abcdefghijklmnopqrstuvwxyz"
+    github_token = "ghp_UPDATEDTOKEN1234567890abcdefghijklmnopqrstuvwxyzNOTREAL"
+    test_api_key = "test_key_UPDATEDFAKE1234567890abcdefghijklmnopqrstuvwxyz"
   }
 }
 
 # Database credentials
 resource "aws_db_instance" "test_db" {
-  identifier = "test-db-new"
-  engine     = "mysql"
+  identifier = "test-db-updated"
+  engine     = "postgres"
   
   # Hardcoded database password
-  password = "NewTestPassword456!@#NOTREAL"
-  username = "dbadmin"
+  password = "UpdatedPassword789!@#NOTREAL"
+  username = "dbuser"
 }
 
 # API keys in variables (using fake patterns)
 variable "payment_api_key" {
-  default = "api_key_NOTREALFAKE1234567890abcdefghijklmnopqrstuvwxyz"
+  default = "api_key_UPDATEDFAKE1234567890abcdefghijklmnopqrstuvwxyz"
 }
 
 variable "slack_webhook_url" {
-  default = "https://hooks.slack.com/services/TNOTREAL00/BNOTREAL00/FAKENOTREALTOKEN123456789"
+  default = "https://hooks.slack.com/services/TUPDATED00/BUPDATED00/FAKEUPDATEDTOKEN123456789"
 }
 
 # Additional secret types
 variable "jwt_token" {
-  default = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ODc2NTQzMjEwIiwibmFtZSI6Ik5ldyBGYWtlIFRlc3QifQ.NOTREALFAKE"
+  default = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMTIyMzM0NDU1IiwibmFtZSI6IlVwZGF0ZWQgRmFrZSBUb2tlbiJ9.UPDATEDFAKE"
 }
 
 variable "private_key" {
-  default = "-----BEGIN RSA PRIVATE KEY-----\nFAKENOTREALKEYDATAHERE9876543210\n-----END RSA PRIVATE KEY-----"
+  default = "-----BEGIN RSA PRIVATE KEY-----\nUPDATEDFAKEKEYDATAHERE111222333444555\n-----END RSA PRIVATE KEY-----"
 }
 
 # Azure service principal
 variable "azure_client_secret" {
-  default = "NOTREAL~Azure~Client~Secret~1234567890~abcdefghijklmnop"
+  default = "UPDATED~Azure~Client~Secret~9876543210~zyxwvutsrqponmlkj"
 }
 
 # Google Cloud service account key
 variable "gcp_service_account_key" {
-  default = "{\"type\":\"service_account\",\"project_id\":\"fake-test-project-notreal\",\"private_key_id\":\"NOTREAL1234567890abcdef\"}"
+  default = "{\"type\":\"service_account\",\"project_id\":\"updated-fake-test-project\",\"private_key_id\":\"UPDATED1234567890abcdef\"}"
+}
+
+# New: Docker Hub credentials
+variable "docker_password" {
+  default = "UpdatedDockerPassword123!@#NOTREAL"
+}
+
+# New: MongoDB connection string
+variable "mongodb_uri" {
+  default = "mongodb://admin:UpdatedMongoPass456!@#@cluster.mongodb.net/dbname"
+}
+
+# New: Redis password
+variable "redis_password" {
+  default = "UpdatedRedisPass789!@#NOTREAL"
 }
