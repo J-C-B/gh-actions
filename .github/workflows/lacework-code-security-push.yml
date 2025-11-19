@@ -18,6 +18,9 @@ jobs:
   run-analysis:
     runs-on: ubuntu-latest
     name: Run analysis
+    strategy:
+      matrix:
+        target: [new, old]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
