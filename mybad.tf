@@ -8,7 +8,7 @@ terraform {
 }
 
 # 6. Create open Security Group to allow port 22,80,443
-resource "aws_security_group" "jbportsteraform" {
+resource "aws_security_group" "jbportsteraformer" {
   name        = "jbportstera_traffic"
   description = "Allow inbound traffic"
   vpc_id      = aws_vpc.jb-vpc.id
