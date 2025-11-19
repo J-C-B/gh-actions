@@ -10,6 +10,10 @@ env:
   LW_API_KEY: ${{ secrets.LW_API_KEY }}
   LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
@@ -17,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Analyze
         uses: lacework/code-security-action@v1
         with:
