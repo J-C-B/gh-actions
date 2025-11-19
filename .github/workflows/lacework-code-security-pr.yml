@@ -25,5 +25,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
       - name: Analyze
         uses: lacework/code-security-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           target: pullRequest
+        continue-on-error: false

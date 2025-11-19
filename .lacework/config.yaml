@@ -2,7 +2,7 @@ default:
     iac:
         enabled: true
         pullRequest:
-            auditMode: true
+            auditMode: false
             commentOnlyHighAndCritical: false
             comments: true
         scan:
@@ -30,21 +30,21 @@ default:
             terraform: true
             terraformPlan: true
             tfsec: true
-    # sca:
-    #     enabled: true
-    #     pullRequest:
-    #         auditMode: true
-    #         commentOnlyHighAndCritical: false
-    #         comments: true
-    #     scan:
-    #         acf: false
-    #         acfLocations: 5
-    #         acfLocationsFull: []
-    #         exceptions: []
-    #         gitHistory: false
-    #         licenseDetection: true
-    #         linesOfCode: true
-    #         sast: true
-    #         scr: true
-    #         secret: true
-    #         vulnEvaluation: true
+    sca:
+        enabled: true
+        pullRequest:
+            auditMode: false
+            commentOnlyHighAndCritical: false
+            comments: true
+        scan:
+            acf: false
+            acfLocations: 5
+            acfLocationsFull: []
+            exceptions: []
+            gitHistory: false
+            licenseDetection: true
+            linesOfCode: true
+            sast: true
+            scr: true
+            secret: true
+            vulnEvaluation: true
