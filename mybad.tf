@@ -9,7 +9,7 @@ terraform {
 
 resource "aws_security_group" "bad_example" {
   name        = "bad_example_sg"
-  description = "Unrestricted Security Group"
+  description = "Unrestricted bad Security Group"
   vpc_id      = aws_vpc.main.id
 
   ingress {
