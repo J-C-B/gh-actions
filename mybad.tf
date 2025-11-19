@@ -7,9 +7,11 @@ terraform {
   }
 }
 
+# Test change for PR scanning
+
 resource "aws_security_group" "bad_example" {
   name        = "bad_example_sg"
-  description = "Unrestricted bad sec Group"
+  description = "Unrestricted bad sec Group - updated for testing"
   vpc_id      = aws_vpc.main.id
 
   ingress {
