@@ -1,221 +1,43 @@
-name: Lacework Code Security (Pull Request)
+on:
+  - pull_request
 
-on: 
-  pull_request: 
-    branches: 
-      - main
+permissions:
+  contents: read
+  pull-requests: write
 
 env:
   LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
   LW_API_KEY: ${{ secrets.LW_API_KEY }}
   LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
-jobs: 
+name: Lacework Code Security (PR)
+jobs:
   run-analysis:
     runs-on: ubuntu-latest
     name: Run analysis
-    steps: 
+    strategy:
+      matrix:
+        target: [new, old]
+    steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Verify config file
-        run: | 
-          echo "Checking for config file..."
-          ls -la .lacework/ || echo "No .lacework directory found"
-          cat .lacework/config.yaml || echo "Config file not found"
-          echo "PR Number: ${{ github.event.pull_request.number }}"
-          echo "PR Head SHA: ${{ github.event.pull_request.head.sha }}"
+          fetch-depth: 2
+      - name: Checkout old
+        if: ${{ matrix.target == 'old' }}
+        run: git checkout HEAD^1
       - name: Analyze
         uses: lacework/code-security-action@v1
         with:
-          target: new
+          target: ${{ matrix.target }}
+  display-results:
+    runs-on: ubuntu-latest
+    name: Display results
+    needs:
+      - run-analysis
+    steps:
+      - name: Results
+        id: code-analysis
+        uses: lacework/code-security-action@v1
+        with:
           token: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: false
-        id: lacework-scan
-      
-      - name: Post PR comments from scan results
-        if: always() && steps.lacework-scan.outcome != 'skipped'
-        uses: actions/github-script@v7
-        with: 
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Try to find SARIF or JSON output files - check multiple locations
-            const possiblePaths = [
-              'scaReport/output-lw.json',
-              'scaReport/output.json',
-              'scaReport/output.sarif',
-              'sca.sarif',
-              '.lacework/results/lacework-code-security-results.sarif',
-              'results-pullRequest/output-lw.json'
-            ];
-            
-            // Also check for files in subdirectories
-            const findFiles = (dir, pattern) => {
-              const results = [];
-              try {
-                const files = fs.readdirSync(dir, { recursive: true, withFileTypes: true });
-                for (const file of files) {
-                  if (file.isFile() && (file.name.includes('output') || file.name.includes('results'))) {
-                    const fullPath = path.join(file.path || dir, file.name);
-                    if (fullPath.endsWith('.json') || fullPath.endsWith('.sarif')) {
-                      results.push(fullPath);
-                    }
-                  }
-                }
-              } catch (e) {
-                // Directory might not exist
-              }
-              return results;
-            };
-            
-            let scanResults = null;
-            let foundFile = null;
-            
-            // First try known paths
-            for (const filePath of possiblePaths) {
-              if (fs.existsSync(filePath)) {
-                try {
-                  const content = fs.readFileSync(filePath, 'utf8');
-                  if (filePath.endsWith('.json')) {
-                    scanResults = JSON.parse(content);
-                    foundFile = filePath;
-                    console.log(`Found JSON results file: ${filePath}`);
-                    console.log(`File structure keys: ${Object.keys(scanResults).join(', ')}`);
-                    break;
-                  }
-                } catch (e) {
-                  console.log(`Error reading ${filePath}: ${e.message}`);
-                }
-              } else {
-                console.log(`File not found: ${filePath}`);
-              }
-            }
-            
-            // If not found, search recursively
-            if (!scanResults) {
-              console.log('Searching for result files recursively...');
-              const foundFiles = findFiles('.', 'output');
-              for (const filePath of foundFiles) {
-                try {
-                  const content = fs.readFileSync(filePath, 'utf8');
-                  if (filePath.endsWith('.json')) {
-                    scanResults = JSON.parse(content);
-                    foundFile = filePath;
-                    console.log(`Found JSON results file: ${filePath}`);
-                    console.log(`File structure keys: ${Object.keys(scanResults).join(', ')}`);
-                    break;
-                  }
-                } catch (e) {
-                  console.log(`Error reading ${filePath}: ${e.message}`);
-                }
-              }
-            }
-            
-            // Build comment from scan results
-            let commentBody = '## 🔒 Lacework Security Scan Results\n\n';
-            
-            if (scanResults) {
-              console.log('Parsing scan results...');
-              console.log(`Full structure: ${JSON.stringify(scanResults, null, 2).substring(0, 500)}`);
-              
-              // Try multiple possible structures
-              let secrets = [];
-              let vulnerabilities = [];
-              
-              // Check various possible structures
-              if (Array.isArray(scanResults)) {
-                // If it's an array, check each item
-                scanResults.forEach(item => {
-                  if (item.type === 'secret' || item.severity === 'Critical' && item.file) {
-                    secrets.push(item);
-                  }
-                });
-              } else {
-                // Try different property names
-                secrets = scanResults.secrets || 
-                         scanResults.findings?.secrets || 
-                         scanResults.results?.secrets ||
-                         scanResults.data?.secrets ||
-                         (scanResults.findings && Array.isArray(scanResults.findings) ? 
-                           scanResults.findings.filter(f => f.type === 'secret' || f.category === 'secret') : []) ||
-                         [];
-                
-                vulnerabilities = scanResults.vulnerabilities || 
-                                 scanResults.findings?.vulnerabilities || 
-                                 scanResults.results?.vulnerabilities ||
-                                 scanResults.data?.vulnerabilities ||
-                                 [];
-              }
-              
-              console.log(`Found ${secrets.length} secrets, ${vulnerabilities.length} vulnerabilities`);
-              
-              if (secrets.length > 0) {
-                commentBody += `### ⚠️ Secrets Detected (${secrets.length})\n\n`;
-                secrets.slice(0, 10).forEach((secret, idx) => {
-                  const file = secret.file || secret.filePath || secret.path || 'Unknown';
-                  const line = secret.line || secret.lineNumber || secret.startLine || 'N/A';
-                  const severity = secret.severity || 'Critical';
-                  const type = secret.type || secret.secretType || secret.category || 'Unknown';
-                  commentBody += `${idx + 1}. **${severity}** - \`${file}:${line}\`\n`;
-                  commentBody += `   - Type: ${type}\n`;
-                });
-                if (secrets.length > 10) {
-                  commentBody += `\n*... and ${secrets.length - 10} more secrets*\n`;
-                }
-              }
-              
-              if (vulnerabilities.length > 0) {
-                commentBody += `\n### 🛡️ Vulnerabilities Found (${vulnerabilities.length})\n\n`;
-                vulnerabilities.slice(0, 10).forEach((vuln, idx) => {
-                  const pkg = vuln.package || vuln.packageName || vuln.name || 'Unknown';
-                  const severity = vuln.severity || 'High';
-                  commentBody += `${idx + 1}. **${severity}** - ${pkg}\n`;
-                });
-                if (vulnerabilities.length > 10) {
-                  commentBody += `\n*... and ${vulnerabilities.length - 10} more vulnerabilities*\n`;
-                }
-              }
-              
-              // If we have the file but no parsed results, show the structure
-              if (secrets.length === 0 && vulnerabilities.length === 0) {
-                commentBody += '⚠️ Scan results found but structure not recognized.\n\n';
-                commentBody += `**File found:** \`${foundFile}\`\n\n`;
-                commentBody += `**Top-level keys:** ${Object.keys(scanResults).join(', ')}\n\n`;
-                commentBody += 'Check the workflow logs for detailed scan results.\n';
-              }
-            } else {
-              commentBody += '⚠️ Scan completed but results file not found.\n\n';
-              commentBody += '**Searched paths:**\n';
-              possiblePaths.forEach(p => commentBody += `- \`${p}\`\n`);
-              commentBody += '\nCheck the workflow logs for detailed scan results.\n';
-            }
-            
-            if (commentBody === '## 🔒 Lacework Security Scan Results\n\n') {
-              commentBody += '✅ No security issues detected in this scan.\n';
-            }
-            
-            // Post comment to PR
-            const prNumber = context.payload.pull_request?.number || context.issue?.number;
-            if (!prNumber) {
-              console.log('Could not determine PR number');
-              return;
-            }
-            
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: commentBody
-            });
-            
-            console.log('Comment posted to PR');
