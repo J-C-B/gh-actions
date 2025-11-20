@@ -1,0 +1,33 @@
+on:
+  pull_request:
+  push:
+    # Run the scan on evey push in main
+    branches: [main]
+  # Run the scan evey day at 7:00am
+  schedule:
+    - cron: '0 7 * * *'
+  # To manually trigger scans from the GitHub UI
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
+  LW_API_KEY: ${{ secrets.LW_API_KEY }}
+  LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
+
+name: Lacework Code Security (Push)
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    name: Run analysis
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Analyze
+        uses: lacework/code-security-action@v1
+        with:
+          target: ${{ github.event_name == 'pull_request' && 'new' || 'push' }}
+          
