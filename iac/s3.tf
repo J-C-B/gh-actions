@@ -120,6 +120,26 @@ resource "aws_s3_bucket_cors_configuration" "open_cors" {
   }
 }
 
+# BAD: Access logs written to same public bucket
+resource "aws_s3_bucket_logging" "self_logging" {
+  bucket = aws_s3_bucket.insecure_bucket.id
+  target_bucket = aws_s3_bucket.insecure_bucket.id  # BAD: Logging to same bucket
+  target_prefix = "logs/"
+}
+
+# BAD: Bucket access point with public network origin
+resource "aws_s3_access_point" "public_access_point" {
+  bucket = aws_s3_bucket.public_rw_bucket.id
+  name   = "public-access-point"
+
+  public_access_block_configuration {
+    block_public_acls       = false
+    block_public_policy     = false
+    ignore_public_acls      = false
+    restrict_public_buckets = false
+  }
+}
+
 # BAD: S3 bucket object containing plaintext credentials
 resource "aws_s3_bucket_object" "plaintext_creds" {
   bucket  = aws_s3_bucket.insecure_bucket.id
