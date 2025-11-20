@@ -1,6 +1,6 @@
 resource "aws_s3_bucket" "insecure_bucket" {
   bucket = "my-insecure-bucket"
-  acl    = "public-read"
+  acl    = "public-read-write"
   ignore_public_acls = false
 
   versioning {
@@ -19,11 +19,21 @@ resource "aws_s3_bucket_policy" "insecure_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Action   = ["s3:GetObject"],
+        Action   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
         Effect   = "Allow",
         Resource = join("", [ "arn:aws:s3:::", aws_s3_bucket.insecure_bucket.id, "/*" ]),
         Principal = "*",
       },
+      {
+        Sid    = "AllowAnyAccountFullControl",
+        Action = ["s3:*"],
+        Effect = "Allow",
+        Resource = [
+          join("", [ "arn:aws:s3:::", aws_s3_bucket.insecure_bucket.id ]),
+          join("", [ "arn:aws:s3:::", aws_s3_bucket.insecure_bucket.id, "/*" ])
+        ],
+        Principal = "*"
+      }
     ],
   })
 }
@@ -32,6 +42,7 @@ resource "aws_s3_bucket_public_access_block" "insecure_public_access_block" {
     bucket = aws_s3_bucket.insecure_bucket.id
 
     block_public_acls = false
+    block_public_policy = false
 
     restrict_public_buckets = false
 }

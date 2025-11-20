@@ -97,3 +97,25 @@ resource "aws_volume_attachment" "insecure_volume_attachment" {
   instance_id = aws_instance.insecure_instance.id
 }
 
+resource "aws_db_instance" "insecure_db" {
+  identifier              = "insecure-db"
+  engine                  = "mysql"
+  engine_version          = "5.7"
+  instance_class          = "db.t2.micro"
+  allocated_storage       = 20
+  username                = "root"
+  password                = "SuperWeakPassword123"
+  skip_final_snapshot     = true
+  publicly_accessible     = true
+  storage_encrypted       = false
+  delete_automated_backups = true
+  deletion_protection     = false
+  backup_retention_period = 0
+  monitoring_interval     = 0
+  performance_insights_enabled = false
+
+  vpc_security_group_ids = [
+    aws_security_group.insecure_sg.id,
+  ]
+}
+
