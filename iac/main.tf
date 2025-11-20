@@ -74,6 +74,24 @@ resource "google_compute_firewall" "faulty-firewall" {
   }
   source_ranges = ["0.0.0.0/0"]
 }
+resource "google_compute_firewall" "allow_all_rdp" {
+  name    = "allow-all-rdp"
+  network = google_compute_network.network.name
+  priority = 1001
+  direction = "INGRESS"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3389"]
+  }
+
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["bastion"]
+
+  log_config {
+    metadata = "EXCLUDE_ALL_METADATA"
+  }
+}
 resource "google_compute_disk" "problematic-disk" {
 ..
   disk_encryption_key {}
@@ -127,6 +145,33 @@ resource "google_container_cluster" "disablesecuritypolicy" {
 	pod_security_policy_config {
         enabled = "false"
 	}
+}
+resource "google_storage_bucket" "public_gcs_bucket" {
+  name                        = "bad-practices-bucket"
+  location                    = "US"
+  force_destroy               = true
+  uniform_bucket_level_access = false
+  public_access_prevention    = "unspecified"
+
+  website {
+    main_page_suffix = "index.html"
+    not_found_page   = "404.html"
+  }
+
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "PUT", "DELETE"]
+    response_header = ["*"]
+    max_age_seconds = 3600
+  }
+}
+
+resource "google_storage_bucket_iam_binding" "public_gcs_acl" {
+  bucket = google_storage_bucket.public_gcs_bucket.name
+  role   = "roles/storage.objectViewer"
+  members = [
+    "allUsers",
+  ]
 }
 #############################################################
 ###########################iam example################
