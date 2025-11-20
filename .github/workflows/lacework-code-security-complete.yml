@@ -70,3 +70,28 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "View detailed results in the [Lacework console](https://${{ secrets.LW_ACCOUNT_NAME }}.lacework.net)" >> $GITHUB_STEP_SUMMARY
 
+  display-results:
+    runs-on: ubuntu-latest
+    name: Display Results and Post Comments
+    needs:
+      - code-security-scan
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download scan results
+        uses: actions/download-artifact@v4
+        with:
+          name: lacework-scan-results
+          path: .
+
+      - name: Display Results and Post PR Comments
+        id: code-analysis
+        uses: lacework/code-security-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
