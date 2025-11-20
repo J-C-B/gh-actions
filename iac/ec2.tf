@@ -119,3 +119,43 @@ resource "aws_db_instance" "insecure_db" {
   ]
 }
 
+resource "aws_iam_user" "overprivileged_user" {
+  name          = "overprivileged-user"
+  force_destroy = true
+}
+
+resource "aws_iam_user_policy" "overprivileged_policy" {
+  name = "overprivileged-policy"
+  user = aws_iam_user.overprivileged_user.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "leaked_key" {
+  user = aws_iam_user.overprivileged_user.name
+}
+
+output "overprivileged_access_key_id" {
+  value = aws_iam_access_key.leaked_key.id
+}
+
+output "overprivileged_secret_access_key" {
+  value       = aws_iam_access_key.leaked_key.secret
+  description = "Intentionally leaking the secret for testing scanners."
+}
+
+resource "aws_ssm_parameter" "plaintext_password" {
+  name  = "/app/production/database_password"
+  type  = "String"
+  value = "PlaintextPassword!DoNotUse"
+}
+
