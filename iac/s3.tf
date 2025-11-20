@@ -119,3 +119,65 @@ resource "aws_s3_bucket_cors_configuration" "open_cors" {
     max_age_seconds = 3000
   }
 }
+
+# BAD: S3 bucket with object lock disabled
+resource "aws_s3_bucket" "no_object_lock" {
+  bucket = "no-object-lock-bucket-12345"
+  
+  # BAD: No object lock configuration
+  # BAD: Objects can be deleted/modified without retention
+}
+
+# BAD: S3 bucket with replication to public bucket
+resource "aws_s3_bucket_replication_configuration" "bad_replication" {
+  role   = aws_iam_role.admin_role.arn
+  bucket = aws_s3_bucket.insecure_bucket.id
+
+  rule {
+    id     = "replicate-to-public"
+    status = "Enabled"
+
+    destination {
+      bucket        = aws_s3_bucket.public_rw_bucket.arn
+      storage_class = "STANDARD"
+    }
+    
+    # BAD: Replicating to a public bucket
+  }
+}
+
+# BAD: S3 bucket notification to public SNS topic
+resource "aws_s3_bucket_notification" "public_notification" {
+  bucket = aws_s3_bucket.insecure_bucket.id
+
+  topic {
+    topic_arn = aws_sns_topic.public_topic.arn
+    events    = ["s3:ObjectCreated:*"]
+  }
+  
+  # BAD: Notifications sent to public topic
+}
+
+# BAD: S3 bucket with no access logging
+resource "aws_s3_bucket" "no_logging" {
+  bucket = "no-logging-bucket-12345"
+  
+  # BAD: No logging configuration
+  # BAD: Cannot track access patterns
+}
+
+# BAD: S3 bucket with lifecycle policy that deletes too quickly
+resource "aws_s3_bucket_lifecycle_configuration" "aggressive_deletion" {
+  bucket = aws_s3_bucket.insecure_bucket.id
+
+  rule {
+    id     = "delete-quickly"
+    status = "Enabled"
+
+    expiration {
+      days = 1  # BAD: Deletes objects after 1 day
+    }
+    
+    # BAD: No transition to cheaper storage
+  }
+}

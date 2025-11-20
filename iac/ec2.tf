@@ -184,3 +184,54 @@ resource "aws_iam_instance_profile" "bad_profile" {
   role = aws_iam_role.admin_role.name  # BAD: Using admin role
 }
 
+# BAD: EC2 instance with user data containing secrets
+resource "aws_instance" "secrets_in_userdata" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    # BAD: Secrets hardcoded in user data
+    export DATABASE_URL="postgresql://admin:Password123!@db.example.com:5432/mydb"
+    export API_KEY="test_api_key_FAKE1234567890abcdefghijklmnop_NOTREAL"
+    export REDIS_PASSWORD="redis-secret-password-123"
+    
+    # BAD: No secrets management
+    echo "Starting application with hardcoded credentials"
+  EOF
+  )
+}
+
+# BAD: EC2 instance without termination protection
+resource "aws_instance" "no_termination_protection" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  # BAD: No disable_api_termination = true
+  # BAD: No instance metadata service v2 enforcement
+}
+
+# BAD: Security group with self-referencing rules
+resource "aws_security_group" "self_reference_sg" {
+  name        = "self-reference-sg"
+  description = "Security group with self-referencing rules - BAD"
+  
+  ingress {
+    from_port       = 0
+    to_port         = 65535
+    protocol        = "tcp"
+    self            = true  # BAD: Allows all traffic from itself
+    cidr_blocks     = ["0.0.0.0/0"]  # BAD: Also allows from anywhere
+  }
+}
+
+# BAD: EC2 instance with detailed monitoring disabled
+resource "aws_instance" "no_monitoring" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  monitoring = false  # BAD: Should be true for production
+  
+  # BAD: No CloudWatch alarms configured
+}
+

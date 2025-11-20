@@ -463,3 +463,165 @@ resource "aws_network_acl" "open_nacl" {
   }
 }
 
+# 26. RDS instance with publicly accessible endpoint and no encryption
+resource "aws_db_instance" "public_unencrypted_db" {
+  identifier     = "public-unencrypted-db"
+  engine         = "postgres"
+  engine_version = "13.7"
+  instance_class = "db.t3.micro"
+
+  allocated_storage     = 20
+  storage_type          = "gp2"
+  publicly_accessible   = true  # BAD: Public access
+  storage_encrypted     = false  # BAD: No encryption
+  
+  db_name  = "mydb"
+  username = "admin"
+  password = "password123"  # BAD: Weak password
+
+  # BAD: No backup retention
+  backup_retention_period = 0
+  skip_final_snapshot    = true
+  deletion_protection   = false
+}
+
+# 27. Lambda function with environment variables containing secrets
+resource "aws_lambda_function" "secrets_in_env" {
+  filename      = "lambda.zip"
+  function_name = "secrets-in-env"
+  role          = aws_iam_role.lambda_execution.arn
+  handler       = "index.handler"
+  runtime       = "python3.9"
+
+  environment {
+    variables = {
+      DB_PASSWORD    = "SuperSecret123!"  # BAD: Secret in env var
+      API_KEY        = "sk_live_1234567890"  # BAD: API key in env var
+      JWT_SECRET     = "my-jwt-secret-key"  # BAD: JWT secret in env var
+    }
+  }
+  
+  # BAD: No VPC configuration
+  # BAD: No dead letter queue
+}
+
+# 28. API Gateway with no rate limiting
+resource "aws_api_gateway_rest_api" "no_rate_limit" {
+  name        = "no-rate-limit-api"
+  description = "API without rate limiting - BAD"
+}
+
+resource "aws_api_gateway_deployment" "no_rate_limit" {
+  rest_api_id = aws_api_gateway_rest_api.no_rate_limit.id
+  
+  # BAD: No usage plan or throttling
+  # BAD: Vulnerable to DDoS
+}
+
+# 29. CloudFront with no WAF
+resource "aws_cloudfront_distribution" "no_waf" {
+  enabled = true
+  
+  origin {
+    domain_name = aws_s3_bucket.public_bucket.bucket_domain_name
+    origin_id   = "S3-${aws_s3_bucket.public_bucket.id}"
+  }
+  
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-${aws_s3_bucket.public_bucket.id}"
+    
+    viewer_protocol_policy = "allow-all"
+    
+    # BAD: No WAF web ACL ID
+  }
+  
+  # BAD: No custom SSL certificate
+  # BAD: No security headers
+}
+
+# 30. ECS task definition with privileged mode
+resource "aws_ecs_task_definition" "privileged_task" {
+  family                   = "privileged-task"
+  network_mode             = "awsvpc"
+  requires_compatibilities  = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([
+    {
+      name  = "privileged-container"
+      image = "nginx:latest"
+      
+      privileged = true  # BAD: Privileged mode enabled
+      
+      environment = [
+        {
+          name  = "SECRET_KEY"
+          value = "my-secret-key"  # BAD: Secret in environment
+        }
+      ]
+    }
+  ])
+  
+  # BAD: No task role restrictions
+  # BAD: No logging configuration
+}
+
+# 31. RDS snapshot with public access
+resource "aws_db_snapshot" "public_snapshot" {
+  db_instance_identifier = aws_db_instance.public_db.id
+  db_snapshot_identifier = "public-snapshot"
+  
+  # BAD: Snapshot may contain sensitive data
+  # BAD: No encryption specified
+}
+
+# 32. EBS snapshot with public access
+resource "aws_ebs_snapshot" "public_ebs_snapshot" {
+  volume_id = aws_ebs_volume.unencrypted_volume.id
+
+  tags = {
+    Name = "public-ebs-snapshot"
+  }
+  
+  # BAD: Snapshot may contain sensitive data
+  # BAD: No encryption
+}
+
+# 33. IAM role with trust policy allowing any principal
+resource "aws_iam_role" "any_principal_role" {
+  name = "any-principal-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"  # BAD: Any AWS account can assume
+        }
+        Action = "sts:AssumeRole"
+      },
+    ]
+  })
+}
+
+# 34. S3 bucket with no server access logging
+resource "aws_s3_bucket" "no_access_logging" {
+  bucket = "no-access-logging-12345"
+  
+  # BAD: Cannot audit access
+  # BAD: No compliance tracking
+}
+
+# 35. CloudWatch log group with no encryption
+resource "aws_cloudwatch_log_group" "unencrypted_logs" {
+  name = "/aws/lambda/unencrypted-logs"
+  
+  # BAD: No encryption
+  # BAD: No retention policy
+  # BAD: Logs may contain sensitive data
+}
+
