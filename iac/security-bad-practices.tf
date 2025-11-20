@@ -229,3 +229,237 @@ resource "aws_ecr_repository_policy" "public_repo" {
   })
 }
 
+# 11. API Gateway without authentication
+resource "aws_api_gateway_rest_api" "public_api" {
+  name        = "public-api"
+  description = "API without authentication - BAD"
+}
+
+resource "aws_api_gateway_method" "public_method" {
+  rest_api_id   = aws_api_gateway_rest_api.public_api.id
+  resource_id   = aws_api_gateway_rest_api.public_api.root_resource_id
+  http_method   = "GET"
+  authorization = "NONE"  # BAD: No authorization
+}
+
+# 12. CloudFront distribution with insecure origin
+resource "aws_cloudfront_distribution" "insecure_distribution" {
+  enabled = true
+  
+  origin {
+    domain_name = aws_s3_bucket.public_bucket.bucket_domain_name
+    origin_id   = "S3-${aws_s3_bucket.public_bucket.id}"
+    
+    # BAD: No origin access control
+  }
+  
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "S3-${aws_s3_bucket.public_bucket.id}"
+    
+    forwarded_values {
+      query_string = true
+      cookies {
+        forward = "all"  # BAD: Forwarding all cookies
+      }
+    }
+    
+    viewer_protocol_policy = "allow-all"  # BAD: Should be redirect-to-https
+  }
+  
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"  # BAD: No geo restrictions
+    }
+  }
+}
+
+# 13. ElastiCache without encryption
+resource "aws_elasticache_cluster" "unencrypted_cache" {
+  cluster_id           = "unencrypted-cache"
+  engine               = "redis"
+  node_type            = "cache.t2.micro"
+  num_cache_nodes      = 1
+  parameter_group_name = "default.redis7"
+  
+  # BAD: No encryption at rest
+  # BAD: No encryption in transit
+  # BAD: No auth token
+}
+
+# 14. KMS key with overly permissive policy
+resource "aws_kms_key" "permissive_key" {
+  description = "KMS key with permissive policy - BAD"
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowAll"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"  # BAD: Allows all AWS accounts
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+    ]
+  })
+}
+
+# 15. VPC without flow logs
+resource "aws_vpc" "no_flow_logs" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+  
+  # BAD: No flow logs configured
+  # BAD: No default security group restrictions
+}
+
+# 16. EKS cluster with public endpoint
+resource "aws_eks_cluster" "public_endpoint" {
+  name     = "public-eks-cluster"
+  role_arn = aws_iam_role.admin_role.arn
+  
+  vpc_config {
+    subnet_ids = []
+    endpoint_public_access  = true  # BAD: Public endpoint
+    endpoint_private_access = false  # BAD: No private endpoint
+  }
+  
+  # BAD: No encryption configuration
+  # BAD: No logging enabled
+  # BAD: No OIDC provider
+}
+
+# 17. Secrets Manager secret with plaintext value
+resource "aws_secretsmanager_secret" "plaintext_secret" {
+  name = "plaintext-secret"
+  
+  # BAD: Storing secret in plaintext in Terraform
+}
+
+resource "aws_secretsmanager_secret_version" "plaintext_secret" {
+  secret_id = aws_secretsmanager_secret.plaintext_secret.id
+  secret_string = jsonencode({
+    username = "admin"
+    password = "SuperSecretPassword123"  # BAD: In plaintext
+    api_key  = "sk_live_1234567890abcdef"  # BAD: API key in plaintext
+  })
+}
+
+# 18. Route53 hosted zone with public records
+resource "aws_route53_zone" "public_zone" {
+  name = "example.com"
+  
+  # BAD: No DNSSEC enabled
+  # BAD: No query logging
+}
+
+# 19. Auto Scaling Group without health checks
+resource "aws_autoscaling_group" "no_health_checks" {
+  name                = "asg-no-health-checks"
+  vpc_zone_identifier  = []
+  min_size            = 1
+  max_size            = 10
+  desired_capacity    = 2
+  
+  # BAD: No health check configuration
+  # BAD: No termination policies
+  # BAD: No scaling policies
+}
+
+# 20. CloudWatch Log Group without retention
+resource "aws_cloudwatch_log_group" "no_retention" {
+  name = "/aws/lambda/no-retention"
+  
+  # BAD: No retention policy - logs never expire
+  # BAD: No encryption
+}
+
+# 21. DynamoDB table without encryption
+resource "aws_dynamodb_table" "unencrypted_table" {
+  name           = "unencrypted-table"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "id"
+  
+  # BAD: No server-side encryption
+  # BAD: No point-in-time recovery
+  # BAD: No backup configuration
+}
+
+# 22. SNS topic with public subscription
+resource "aws_sns_topic" "public_topic" {
+  name = "public-sns-topic"
+  
+  # BAD: No encryption
+  # BAD: No access policy restrictions
+}
+
+resource "aws_sns_topic_policy" "public_topic_policy" {
+  arn = aws_sns_topic.public_topic.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = "*"
+        Action = "SNS:Publish"
+        Resource = aws_sns_topic.public_topic.arn
+      },
+    ]
+  })
+}
+
+# 23. SQS queue without encryption
+resource "aws_sqs_queue" "unencrypted_queue" {
+  name = "unencrypted-queue"
+  
+  # BAD: No encryption
+  # BAD: No dead letter queue
+  # BAD: No visibility timeout
+}
+
+# 24. IAM policy with wildcard resources and actions
+resource "aws_iam_policy" "wildcard_policy" {
+  name        = "wildcard-policy"
+  description = "Policy with wildcards - BAD"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"  # BAD: All actions
+        Resource = "*"  # BAD: All resources
+      },
+    ]
+  })
+}
+
+# 25. Network ACL allowing all traffic
+resource "aws_network_acl" "open_nacl" {
+  vpc_id = aws_vpc.no_flow_logs.id
+
+  ingress {
+    rule_no    = 100
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    action     = "allow"
+  }
+
+  egress {
+    rule_no    = 100
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    action     = "allow"
+  }
+
+  tags = {
+    Name = "open-network-acl"
+  }
+}
+

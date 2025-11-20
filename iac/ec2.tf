@@ -97,3 +97,90 @@ resource "aws_volume_attachment" "insecure_volume_attachment" {
   instance_id = aws_instance.insecure_instance.id
 }
 
+# BAD: EC2 instance with hardcoded credentials in user data
+resource "aws_instance" "bad_instance" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  # BAD: No encryption on root volume
+  root_block_device {
+    encrypted = false
+    volume_type = "standard"  # BAD: Should use gp3
+  }
+  
+  # BAD: Hardcoded AWS credentials in user data
+  user_data = <<-EOF
+    #!/bin/bash
+    export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+    export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    export DB_PASSWORD=SuperSecret123!
+  EOF
+  
+  # BAD: Public IP with open security group
+  associate_public_ip_address = true
+  vpc_security_group_ids = [aws_security_group.insecure_sg.id]
+  
+  # BAD: No IAM instance profile
+  # BAD: No monitoring enabled
+}
+
+# BAD: Security group allowing SSH from anywhere
+resource "aws_security_group" "bad_ssh_sg" {
+  name        = "bad-ssh-sg"
+  description = "Allows SSH from anywhere - BAD"
+  
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # BAD: SSH open to world
+  }
+  
+  ingress {
+    from_port   = 3389
+    to_port     = 3389
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # BAD: RDP open to world
+  }
+}
+
+# BAD: EBS volume without encryption
+resource "aws_ebs_volume" "unencrypted_volume" {
+  availability_zone = "us-east-1a"
+  size              = 100
+  encrypted         = false  # BAD: Should be true
+  type              = "gp2"  # BAD: Should use gp3
+  iops              = 100
+}
+
+# BAD: EC2 instance with metadata service v1 (vulnerable to SSRF)
+resource "aws_instance" "metadata_v1_instance" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "optional"  # BAD: Should be "required"
+    http_put_response_hop_limit = 1
+  }
+}
+
+# BAD: Launch template with overly permissive IAM role
+resource "aws_launch_template" "bad_template" {
+  name_prefix   = "bad-template-"
+  image_id      = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  iam_instance_profile {
+    name = aws_iam_instance_profile.bad_profile.name
+  }
+  
+  # BAD: No user data hardening
+  # BAD: No security group restrictions
+}
+
+resource "aws_iam_instance_profile" "bad_profile" {
+  name = "bad-instance-profile"
+  role = aws_iam_role.admin_role.name  # BAD: Using admin role
+}
+
