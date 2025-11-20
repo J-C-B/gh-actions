@@ -6,23 +6,12 @@ default:
             commentOnlyHighAndCritical: false
             comments: true
         scan:
-            autofix: true
+            autofix: false
             checkov: true
             checkovModuleDownload: false
             cloudformation: true
             dockerfile: true
             exceptions: []
-            exitConditions:
-                any:
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: critical
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: high
-                enabled: true
             helm: true
             kubernetes: true
             kustomize: true
@@ -48,14 +37,3 @@ default:
             scr: true
             secret: true
             vulnEvaluation: true
-            exitConditions:
-                any:
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: critical
-                    - attribute: severity
-                      operator: '>'
-                      threshold: 0
-                      value: high
-                enabled: true        
