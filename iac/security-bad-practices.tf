@@ -325,11 +325,13 @@ resource "aws_eks_cluster" "public_endpoint" {
   
   vpc_config {
     subnet_ids = []
+    endpoint_public_access  = true  # BAD: Public endpoint
+    endpoint_private_access = false  # BAD: No private endpoint
   }
   
-  # BAD: Public endpoint enabled
   # BAD: No encryption configuration
   # BAD: No logging enabled
+  # BAD: No OIDC provider
 }
 
 # 17. Secrets Manager secret with plaintext value
@@ -344,6 +346,7 @@ resource "aws_secretsmanager_secret_version" "plaintext_secret" {
   secret_string = jsonencode({
     username = "admin"
     password = "SuperSecretPassword123"  # BAD: In plaintext
+    api_key  = "sk_live_1234567890abcdef"  # BAD: API key in plaintext
   })
 }
 
@@ -365,6 +368,7 @@ resource "aws_autoscaling_group" "no_health_checks" {
   
   # BAD: No health check configuration
   # BAD: No termination policies
+  # BAD: No scaling policies
 }
 
 # 20. CloudWatch Log Group without retention
@@ -373,5 +377,89 @@ resource "aws_cloudwatch_log_group" "no_retention" {
   
   # BAD: No retention policy - logs never expire
   # BAD: No encryption
+}
+
+# 21. DynamoDB table without encryption
+resource "aws_dynamodb_table" "unencrypted_table" {
+  name           = "unencrypted-table"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "id"
+  
+  # BAD: No server-side encryption
+  # BAD: No point-in-time recovery
+  # BAD: No backup configuration
+}
+
+# 22. SNS topic with public subscription
+resource "aws_sns_topic" "public_topic" {
+  name = "public-sns-topic"
+  
+  # BAD: No encryption
+  # BAD: No access policy restrictions
+}
+
+resource "aws_sns_topic_policy" "public_topic_policy" {
+  arn = aws_sns_topic.public_topic.arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = "*"
+        Action = "SNS:Publish"
+        Resource = aws_sns_topic.public_topic.arn
+      },
+    ]
+  })
+}
+
+# 23. SQS queue without encryption
+resource "aws_sqs_queue" "unencrypted_queue" {
+  name = "unencrypted-queue"
+  
+  # BAD: No encryption
+  # BAD: No dead letter queue
+  # BAD: No visibility timeout
+}
+
+# 24. IAM policy with wildcard resources and actions
+resource "aws_iam_policy" "wildcard_policy" {
+  name        = "wildcard-policy"
+  description = "Policy with wildcards - BAD"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"  # BAD: All actions
+        Resource = "*"  # BAD: All resources
+      },
+    ]
+  })
+}
+
+# 25. Network ACL allowing all traffic
+resource "aws_network_acl" "open_nacl" {
+  vpc_id = aws_vpc.no_flow_logs.id
+
+  ingress {
+    rule_no    = 100
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    action     = "allow"
+  }
+
+  egress {
+    rule_no    = 100
+    protocol   = "-1"
+    cidr_block = "0.0.0.0/0"
+    action     = "allow"
+  }
+
+  tags = {
+    Name = "open-network-acl"
+  }
 }
 

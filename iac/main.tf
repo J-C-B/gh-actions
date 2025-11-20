@@ -144,6 +144,7 @@ resource "google_project_iam_binding" "admin_binding" {
   members = [
     "user:admin@example.com",
     "serviceAccount:${google_service_account.service_account.email}",
+    "allUsers",  # BAD: Public access
   ]
 }
 
@@ -167,6 +168,7 @@ resource "google_compute_firewall" "allow_all" {
   }
   
   source_ranges = ["0.0.0.0/0"]  # BAD: From anywhere
+  target_tags   = ["web", "db", "app"]  # BAD: Applied to all tags
 }
 
 # BAD: Compute instance with public IP and no firewall restrictions
@@ -179,6 +181,7 @@ resource "google_compute_instance" "exposed_instance" {
     initialize_params {
       image = "debian-cloud/debian-9"
     }
+    # BAD: No disk encryption
   }
 
   network_interface {
@@ -193,6 +196,11 @@ resource "google_compute_instance" "exposed_instance" {
     email  = google_service_account.service_account.email
     scopes = ["cloud-platform"]  # BAD: Full cloud platform access
   }
+  
+  # BAD: No metadata security
+  metadata = {
+    enable-oslogin = "false"  # BAD: Should be true
+  }
 }
 
 # BAD: Storage bucket with public access
@@ -203,6 +211,9 @@ resource "google_storage_bucket" "public_bucket" {
   
   # BAD: Public access
   uniform_bucket_level_access = false
+  
+  # BAD: No encryption
+  # BAD: No versioning
 }
 
 resource "google_storage_bucket_iam_binding" "public_binding" {
@@ -211,6 +222,7 @@ resource "google_storage_bucket_iam_binding" "public_binding" {
   
   members = [
     "allUsers",  # BAD: Public access
+    "allAuthenticatedUsers",  # BAD: All authenticated users
   ]
 }
 
@@ -227,11 +239,20 @@ resource "google_sql_database_instance" "public_db" {
       ipv4_enabled    = true  # BAD: Public IP enabled
       authorized_networks {
         value = "0.0.0.0/0"  # BAD: Access from anywhere
+        name  = "anywhere"
       }
     }
     
     # BAD: No backup configuration
+    backup_configuration {
+      enabled = false  # BAD: Backups disabled
+    }
+    
     # BAD: No encryption configuration
+    database_flags {
+      name  = "skip_ssl"
+      value = "on"  # BAD: SSL disabled
+    }
   }
 }
 
@@ -239,6 +260,34 @@ resource "google_sql_user" "weak_password_user" {
   name     = "admin"
   instance = google_sql_database_instance.public_db.name
   password = "password123"  # BAD: Weak password
+}
+
+# BAD: GKE cluster with public endpoint and no network policies
+resource "google_container_cluster" "insecure_cluster" {
+  name     = "insecure-gke-cluster"
+  location = "us-central1-a"
+  
+  # BAD: Public endpoint
+  private_cluster_config {
+    enable_private_nodes    = false
+    enable_private_endpoint = false
+  }
+  
+  # BAD: Legacy ABAC enabled
+  enable_legacy_abac = true
+  
+  # BAD: No network policy
+  network_policy {
+    enabled = false
+  }
+  
+  # BAD: No pod security policy
+  pod_security_policy_config {
+    enabled = false
+  }
+  
+  # BAD: No binary authorization
+  # BAD: No workload identity
 }
 
  
