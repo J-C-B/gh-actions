@@ -97,3 +97,45 @@ resource "aws_volume_attachment" "insecure_volume_attachment" {
   instance_id = aws_instance.insecure_instance.id
 }
 
+# BAD: Hardcoded credentials in user data
+resource "aws_instance" "bad_instance" {
+  ami           = "ami-12345678"
+  instance_type = "t2.micro"
+  
+  # BAD: No encryption on root volume
+  root_block_device {
+    encrypted = false
+  }
+  
+  # BAD: Hardcoded AWS credentials
+  user_data = <<-EOF
+    export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+    export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+  EOF
+  
+  # BAD: Public IP with open security group
+  associate_public_ip_address = true
+  vpc_security_group_ids = [aws_security_group.insecure_sg.id]
+}
+
+# BAD: Security group allowing SSH from anywhere
+resource "aws_security_group" "bad_ssh_sg" {
+  name        = "bad-ssh-sg"
+  description = "Allows SSH from anywhere - BAD"
+  
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# BAD: EBS volume without encryption
+resource "aws_ebs_volume" "unencrypted_volume" {
+  availability_zone = "us-east-1a"
+  size              = 100
+  encrypted         = false  # BAD: Should be true
+  type              = "gp2"
+}
+
