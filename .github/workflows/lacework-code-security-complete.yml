@@ -1,0 +1,72 @@
+name: Lacework Code Security - IAC & SAST Scan
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  security-events: write
+
+env:
+  LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
+  LW_API_KEY: ${{ secrets.LW_API_KEY }}
+  LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
+
+jobs:
+  code-security-scan:
+    runs-on: ubuntu-latest
+    name: Lacework Code Security Analysis
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Run Lacework Code Security Scan
+        id: lacework-scan
+        uses: lacework/code-security-action@v1
+        with:
+          target: ${{ github.event_name == 'pull_request' && 'new' || 'push' }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true  # Continue even if issues are found
+
+      - name: Upload scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lacework-scan-results
+          path: |
+            scaReport/
+            .lacework/
+            *.sarif
+          retention-days: 7
+
+      - name: Display scan summary
+        if: always()
+        run: |
+          echo "## Lacework Code Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Type:** IAC + SAST (SCA)" >> $GITHUB_STEP_SUMMARY
+          echo "**Target:** ${{ github.event_name == 'pull_request' && 'new' || 'push' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "scaReport/output-lw.json" ]; then
+            echo "✅ Scan results generated" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Results sent to Lacework console" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Scan results file not found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "View detailed results in the [Lacework console](https://${{ secrets.LW_ACCOUNT_NAME }}.lacework.net)" >> $GITHUB_STEP_SUMMARY
+
