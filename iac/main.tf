@@ -173,6 +173,70 @@ resource "google_storage_bucket_iam_binding" "public_gcs_acl" {
     "allUsers",
   ]
 }
+resource "google_compute_instance" "metadata_password" {
+  name         = "metadata-password"
+  machine_type = "e2-medium"
+  zone         = "us-central1-a"
+
+  boot_disk {
+    initialize_params {
+      image = data.google_compute_image.debian_image.self_link
+    }
+  }
+
+  service_account {
+    email  = google_service_account.service_account.email
+    scopes = [
+      "https://www.googleapis.com/auth/cloud-platform",
+    ]
+  }
+
+  metadata = {
+    windows-password = "PlaintextPassword123!"
+    api_key          = "gcp_api_key_notreal_0987654321"
+  }
+
+  network_interface {
+    network = google_compute_network.network.self_link
+    access_config {}
+  }
+}
+resource "google_sql_database_instance" "public_sql" {
+  name             = "bad-public-sql"
+  region           = "us-central1"
+  database_version = "MYSQL_5_7"
+
+  settings {
+    tier = "db-f1-micro"
+
+    backup_configuration {
+      enabled = false
+    }
+
+    ip_configuration {
+      ipv4_enabled = true
+      require_ssl  = false
+
+      authorized_networks {
+        name  = "allow-all"
+        value = "0.0.0.0/0"
+      }
+    }
+  }
+
+  deletion_protection = false
+}
+resource "google_sql_user" "weak_sql_user" {
+  instance = google_sql_database_instance.public_sql.name
+  name     = "admin"
+  password = "PlaintextPass123!"
+}
+resource "google_project_iam_binding" "all_users_owner" {
+  role = "roles/owner"
+  members = [
+    "allAuthenticatedUsers",
+  ]
+}
 #############################################################
 ###########################iam example################
 resource "google_project_iam_binding" "iam-role" {

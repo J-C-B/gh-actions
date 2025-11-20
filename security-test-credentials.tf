@@ -81,3 +81,19 @@ variable "azure_client_secret" {
 variable "gcp_service_account_key" {
   default = "{\"type\":\"service_account\",\"project_id\":\"fake-test-project-notreal\",\"private_key_id\":\"NOTREAL1234567890abcdef\"}"
 }
+
+variable "pagerduty_api_token" {
+  default = "PDAI1234567890FAKETOKEN0987654321"
+}
+
+variable "hashicorp_vault_token" {
+  default = "hvs.ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890fake"
+}
+
+output "fake_sendinblue_key" {
+  value = "xkeysib-fake-sendinblue-key-1234567890abcdef"
+}
+
+output "fake_service_principal_password" {
+  value = "ServicePrincipalPassword-NotReal-987654321"
+}
