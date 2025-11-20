@@ -290,4 +290,77 @@ resource "google_container_cluster" "insecure_cluster" {
   # BAD: No workload identity
 }
 
+# BAD: Cloud KMS key without rotation or protections
+resource "google_kms_key_ring" "insecure_ring" {
+  name     = "insecure-ring"
+  location = "global"
+}
+
+resource "google_kms_crypto_key" "insecure_key" {
+  name            = "insecure-key"
+  key_ring        = google_kms_key_ring.insecure_ring.id
+  rotation_period = "315360000s" # BAD: 10 years
+
+  version_template {
+    algorithm = "GOOGLE_SYMMETRIC_ENCRYPTION"
+  }
+}
+
+# BAD: BigQuery dataset with public access
+resource "google_bigquery_dataset" "public_dataset" {
+  dataset_id                  = "public_dataset"
+  location                    = "US"
+  delete_contents_on_destroy  = true
+
+  access {
+    role          = "READER"
+    special_group = "allUsers"
+  }
+}
+
+# BAD: DNS managed zone without DNSSEC
+resource "google_dns_managed_zone" "public_zone" {
+  name        = "public-zone"
+  dns_name    = "example-insecure.com."
+  visibility  = "public"
+  description = "Public zone without DNSSEC"
+
+  dnssec_config {
+    state = "off"
+  }
+}
+
+# BAD: Storage bucket logging disabled and default object acl public
+resource "google_storage_default_object_acl" "public_default_acl" {
+  bucket = google_storage_bucket.public_bucket.name
+  role   = "READER"
+  entity = "allUsers"
+}
+
+# BAD: Compute instance template exposing metadata server
+resource "google_compute_instance_template" "exposed_template" {
+  name_prefix  = "exposed-template-"
+  machine_type = "e2-medium"
+
+  disk {
+    source_image = "projects/debian-cloud/global/images/family/debian-11"
+    auto_delete  = true
+  }
+
+  network_interface {
+    network = google_compute_network.network.id
+    access_config {}
+  }
+
+  metadata = {
+    enable-oslogin = "FALSE"
+    ssh-keys       = "admin:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQFakeKeyForDemo"
+  }
+
+  service_account {
+    email  = google_service_account.service_account.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+}
+
  

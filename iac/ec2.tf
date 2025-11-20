@@ -184,3 +184,94 @@ resource "aws_iam_instance_profile" "bad_profile" {
   role = aws_iam_role.admin_role.name  # BAD: Using admin role
 }
 
+# BAD: EC2 instance that writes private keys to disk
+resource "aws_instance" "debug_jump_box" {
+  ami           = "ami-0abcdef1234567890"
+  instance_type = "t3.small"
+
+  associate_public_ip_address = true
+  subnet_id                   = aws_default_subnet.insecure_subnet.id
+  vpc_security_group_ids      = [aws_security_group.insecure_sg.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    cat <<'KEY' >/home/ubuntu/id_rsa
+    -----BEGIN PRIVATE KEY-----
+    TESTFAKEPRIVATEKEYDATA1234567890
+    -----END PRIVATE KEY-----
+    KEY
+    chmod 600 /home/ubuntu/id_rsa
+  EOF
+
+  # BAD: Root block device not encrypted or backed up
+  root_block_device {
+    encrypted   = false
+    volume_size = 10
+  }
+}
+
+# BAD: Security group rule exposing database port to the internet
+resource "aws_security_group_rule" "open_database_port" {
+  type              = "ingress"
+  from_port         = 5432
+  to_port           = 5432
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  security_group_id = aws_security_group.insecure_sg.id
+  description       = "Public database access - BAD"
+}
+
+# BAD: Launch configuration with hardcoded secrets and no IMDSv2
+resource "aws_launch_configuration" "legacy_launch_config" {
+  name_prefix   = "legacy-"
+  image_id      = "ami-0abcdef1234567890"
+  instance_type = "t2.small"
+  security_groups = [
+    aws_security_group.insecure_sg.id
+  ]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    export API_TOKEN="test_api_token_FAKE1234567890"
+    export SMTP_PASSWORD="smtp-password-plain"
+  EOF
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# BAD: Auto Scaling group without health checks or scaling policies
+resource "aws_autoscaling_group" "legacy_asg" {
+  name                      = "legacy-asg"
+  min_size                  = 1
+  max_size                  = 5
+  desired_capacity          = 3
+  launch_configuration      = aws_launch_configuration.legacy_launch_config.name
+  vpc_zone_identifier       = [aws_default_subnet.insecure_subnet.id]
+  health_check_type         = "EC2"
+  health_check_grace_period = 0  # BAD: No grace period
+  force_delete              = true
+
+  tag {
+    key                 = "Environment"
+    value               = "legacy"
+    propagate_at_launch = true
+  }
+}
+
+# BAD: Instance with IMDS totally disabled causing scripts to fail closed
+resource "aws_instance" "imds_disabled_instance" {
+  ami           = "ami-0abcdef1234567890"
+  instance_type = "t2.micro"
+  subnet_id     = aws_default_subnet.insecure_subnet.id
+
+  metadata_options {
+    http_endpoint               = "disabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 1
+  }
+
+  # BAD: No monitoring or backup strategy
+}
+

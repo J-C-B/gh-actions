@@ -463,3 +463,95 @@ resource "aws_network_acl" "open_nacl" {
   }
 }
 
+# 26. Glue connection with plaintext credentials
+resource "aws_glue_connection" "plaintext_connection" {
+  name = "plaintext-connection"
+  connection_properties = {
+    JDBC_CONNECTION_URL = "jdbc:mysql://public-db:3306/app"
+    USERNAME            = "admin"
+    PASSWORD            = "PlaintextPass123!"
+  }
+  physical_connection_requirements {
+    availability_zone = "us-east-1a"
+    subnet_id         = aws_default_subnet.insecure_subnet.id
+    security_group_id_list = [
+      aws_security_group.insecure_sg.id
+    ]
+  }
+}
+
+# 27. AppSync API using API key authentication only
+resource "aws_appsync_graphql_api" "public_api" {
+  name                = "public-appsync-api"
+  authentication_type = "API_KEY"
+  log_config {
+    field_log_level = "NONE" # BAD: No logging
+  }
+}
+
+resource "aws_appsync_api_key" "long_lived_key" {
+  api_id  = aws_appsync_graphql_api.public_api.id
+  expires = timeadd(timestamp(), "8760h") # BAD: 1 year
+}
+
+# 28. Backup vault without encryption or notifications
+resource "aws_backup_vault" "insecure_vault" {
+  name        = "insecure-backup-vault"
+  kms_key_arn = null  # BAD: No encryption
+}
+
+resource "aws_backup_plan" "insecure_plan" {
+  name = "insecure-plan"
+
+  rule {
+    rule_name         = "insecure-rule"
+    target_vault_name = aws_backup_vault.insecure_vault.name
+    schedule          = "cron(0 12 * * ? *)"
+    lifecycle {
+      delete_after = 1  # BAD: Deletes backups after 1 day
+    }
+  }
+}
+
+# 29. Secrets Manager rotation disabled with plaintext secret
+resource "aws_secretsmanager_secret" "no_rotation_secret" {
+  name = "no-rotation-secret"
+}
+
+resource "aws_secretsmanager_secret_version" "no_rotation_secret_version" {
+  secret_id     = aws_secretsmanager_secret.no_rotation_secret.id
+  secret_string = "{\"token\":\"test_api_token_FAKE222222\",\"password\":\"ChangeMe!\"}"
+}
+
+# 30. OpenSearch domain with anonymous access
+resource "aws_opensearch_domain" "public_domain" {
+  domain_name    = "public-domain"
+  engine_version = "OpenSearch_2.5"
+
+  cluster_config {
+    instance_type = "t3.small.search"
+  }
+
+  access_policies = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "es:*",
+      "Resource": "*"
+    }
+  ]
+}
+POLICY
+
+  encrypt_at_rest {
+    enabled = false
+  }
+
+  node_to_node_encryption {
+    enabled = false
+  }
+}
+

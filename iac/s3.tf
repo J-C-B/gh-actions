@@ -119,3 +119,62 @@ resource "aws_s3_bucket_cors_configuration" "open_cors" {
     max_age_seconds = 3000
   }
 }
+
+# BAD: S3 bucket object containing plaintext credentials
+resource "aws_s3_bucket_object" "plaintext_creds" {
+  bucket  = aws_s3_bucket.insecure_bucket.id
+  key     = "config/creds.txt"
+  content = <<-EOF
+    username=admin
+    password=PlaintextPassword123!
+    api_token=test_api_token_FAKE987654321
+  EOF
+  acl     = "public-read"
+}
+
+# BAD: Bucket ACL explicitly allowing everyone
+resource "aws_s3_bucket_acl" "explicit_public_acl" {
+  bucket = aws_s3_bucket.insecure_bucket.id
+  acl    = "public-read-write"
+}
+
+# BAD: Replication configuration pointing to untrusted account
+resource "aws_s3_bucket" "untrusted_bucket" {
+  bucket = "untrusted-destination-bucket-12345"
+}
+
+resource "aws_s3_bucket_replication_configuration" "untrusted_replication" {
+  depends_on = [aws_s3_bucket_public_access_block.insecure_public_access_block]
+  role       = aws_iam_role.admin_role.arn
+  bucket     = aws_s3_bucket.insecure_bucket.id
+
+  rule {
+    id     = "replicate-all"
+    status = "Enabled"
+
+    delete_marker_replication {
+      status = "Disabled"
+    }
+
+    destination {
+      bucket        = aws_s3_bucket.untrusted_bucket.arn
+      storage_class = "STANDARD"
+      account       = "123456789012" # BAD: Hardcoded account
+    }
+  }
+}
+
+# BAD: S3 bucket lifecycle that archives immediately without review
+resource "aws_s3_bucket_lifecycle_configuration" "immediate_glacier" {
+  bucket = aws_s3_bucket.untrusted_bucket.id
+
+  rule {
+    id     = "archive-immediately"
+    status = "Enabled"
+
+    transition {
+      days          = 0
+      storage_class = "GLACIER"
+    }
+  }
+}
