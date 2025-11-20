@@ -463,165 +463,95 @@ resource "aws_network_acl" "open_nacl" {
   }
 }
 
-# 26. RDS instance with publicly accessible endpoint and no encryption
-resource "aws_db_instance" "public_unencrypted_db" {
-  identifier     = "public-unencrypted-db"
-  engine         = "postgres"
-  engine_version = "13.7"
-  instance_class = "db.t3.micro"
-
-  allocated_storage     = 20
-  storage_type          = "gp2"
-  publicly_accessible   = true  # BAD: Public access
-  storage_encrypted     = false  # BAD: No encryption
-  
-  db_name  = "mydb"
-  username = "admin"
-  password = "password123"  # BAD: Weak password
-
-  # BAD: No backup retention
-  backup_retention_period = 0
-  skip_final_snapshot    = true
-  deletion_protection   = false
-}
-
-# 27. Lambda function with environment variables containing secrets
-resource "aws_lambda_function" "secrets_in_env" {
-  filename      = "lambda.zip"
-  function_name = "secrets-in-env"
-  role          = aws_iam_role.lambda_execution.arn
-  handler       = "index.handler"
-  runtime       = "python3.9"
-
-  environment {
-    variables = {
-      DB_PASSWORD    = "SuperSecret123!"  # BAD: Secret in env var
-      API_KEY        = "sk_live_1234567890"  # BAD: API key in env var
-      JWT_SECRET     = "my-jwt-secret-key"  # BAD: JWT secret in env var
-    }
+# 26. Glue connection with plaintext credentials
+resource "aws_glue_connection" "plaintext_connection" {
+  name = "plaintext-connection"
+  connection_properties = {
+    JDBC_CONNECTION_URL = "jdbc:mysql://public-db:3306/app"
+    USERNAME            = "admin"
+    PASSWORD            = "PlaintextPass123!"
   }
-  
-  # BAD: No VPC configuration
-  # BAD: No dead letter queue
-}
-
-# 28. API Gateway with no rate limiting
-resource "aws_api_gateway_rest_api" "no_rate_limit" {
-  name        = "no-rate-limit-api"
-  description = "API without rate limiting - BAD"
-}
-
-resource "aws_api_gateway_deployment" "no_rate_limit" {
-  rest_api_id = aws_api_gateway_rest_api.no_rate_limit.id
-  
-  # BAD: No usage plan or throttling
-  # BAD: Vulnerable to DDoS
-}
-
-# 29. CloudFront with no WAF
-resource "aws_cloudfront_distribution" "no_waf" {
-  enabled = true
-  
-  origin {
-    domain_name = aws_s3_bucket.public_bucket.bucket_domain_name
-    origin_id   = "S3-${aws_s3_bucket.public_bucket.id}"
-  }
-  
-  default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "S3-${aws_s3_bucket.public_bucket.id}"
-    
-    viewer_protocol_policy = "allow-all"
-    
-    # BAD: No WAF web ACL ID
-  }
-  
-  # BAD: No custom SSL certificate
-  # BAD: No security headers
-}
-
-# 30. ECS task definition with privileged mode
-resource "aws_ecs_task_definition" "privileged_task" {
-  family                   = "privileged-task"
-  network_mode             = "awsvpc"
-  requires_compatibilities  = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-
-  container_definitions = jsonencode([
-    {
-      name  = "privileged-container"
-      image = "nginx:latest"
-      
-      privileged = true  # BAD: Privileged mode enabled
-      
-      environment = [
-        {
-          name  = "SECRET_KEY"
-          value = "my-secret-key"  # BAD: Secret in environment
-        }
-      ]
-    }
-  ])
-  
-  # BAD: No task role restrictions
-  # BAD: No logging configuration
-}
-
-# 31. RDS snapshot with public access
-resource "aws_db_snapshot" "public_snapshot" {
-  db_instance_identifier = aws_db_instance.public_db.id
-  db_snapshot_identifier = "public-snapshot"
-  
-  # BAD: Snapshot may contain sensitive data
-  # BAD: No encryption specified
-}
-
-# 32. EBS snapshot with public access
-resource "aws_ebs_snapshot" "public_ebs_snapshot" {
-  volume_id = aws_ebs_volume.unencrypted_volume.id
-
-  tags = {
-    Name = "public-ebs-snapshot"
-  }
-  
-  # BAD: Snapshot may contain sensitive data
-  # BAD: No encryption
-}
-
-# 33. IAM role with trust policy allowing any principal
-resource "aws_iam_role" "any_principal_role" {
-  name = "any-principal-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          AWS = "*"  # BAD: Any AWS account can assume
-        }
-        Action = "sts:AssumeRole"
-      },
+  physical_connection_requirements {
+    availability_zone = "us-east-1a"
+    subnet_id         = aws_default_subnet.insecure_subnet.id
+    security_group_id_list = [
+      aws_security_group.insecure_sg.id
     ]
-  })
+  }
 }
 
-# 34. S3 bucket with no server access logging
-resource "aws_s3_bucket" "no_access_logging" {
-  bucket = "no-access-logging-12345"
-  
-  # BAD: Cannot audit access
-  # BAD: No compliance tracking
+# 27. AppSync API using API key authentication only
+resource "aws_appsync_graphql_api" "public_api" {
+  name                = "public-appsync-api"
+  authentication_type = "API_KEY"
+  log_config {
+    field_log_level = "NONE" # BAD: No logging
+  }
 }
 
-# 35. CloudWatch log group with no encryption
-resource "aws_cloudwatch_log_group" "unencrypted_logs" {
-  name = "/aws/lambda/unencrypted-logs"
-  
-  # BAD: No encryption
-  # BAD: No retention policy
-  # BAD: Logs may contain sensitive data
+resource "aws_appsync_api_key" "long_lived_key" {
+  api_id  = aws_appsync_graphql_api.public_api.id
+  expires = timeadd(timestamp(), "8760h") # BAD: 1 year
+}
+
+# 28. Backup vault without encryption or notifications
+resource "aws_backup_vault" "insecure_vault" {
+  name        = "insecure-backup-vault"
+  kms_key_arn = null  # BAD: No encryption
+}
+
+resource "aws_backup_plan" "insecure_plan" {
+  name = "insecure-plan"
+
+  rule {
+    rule_name         = "insecure-rule"
+    target_vault_name = aws_backup_vault.insecure_vault.name
+    schedule          = "cron(0 12 * * ? *)"
+    lifecycle {
+      delete_after = 1  # BAD: Deletes backups after 1 day
+    }
+  }
+}
+
+# 29. Secrets Manager rotation disabled with plaintext secret
+resource "aws_secretsmanager_secret" "no_rotation_secret" {
+  name = "no-rotation-secret"
+}
+
+resource "aws_secretsmanager_secret_version" "no_rotation_secret_version" {
+  secret_id     = aws_secretsmanager_secret.no_rotation_secret.id
+  secret_string = "{\"token\":\"test_api_token_FAKE222222\",\"password\":\"ChangeMe!\"}"
+}
+
+# 30. OpenSearch domain with anonymous access
+resource "aws_opensearch_domain" "public_domain" {
+  domain_name    = "public-domain"
+  engine_version = "OpenSearch_2.5"
+
+  cluster_config {
+    instance_type = "t3.small.search"
+  }
+
+  access_policies = <<POLICY
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "es:*",
+      "Resource": "*"
+    }
+  ]
+}
+POLICY
+
+  encrypt_at_rest {
+    enabled = false
+  }
+
+  node_to_node_encryption {
+    enabled = false
+  }
 }
 

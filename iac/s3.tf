@@ -120,64 +120,61 @@ resource "aws_s3_bucket_cors_configuration" "open_cors" {
   }
 }
 
-# BAD: S3 bucket with object lock disabled
-resource "aws_s3_bucket" "no_object_lock" {
-  bucket = "no-object-lock-bucket-12345"
-  
-  # BAD: No object lock configuration
-  # BAD: Objects can be deleted/modified without retention
+# BAD: S3 bucket object containing plaintext credentials
+resource "aws_s3_bucket_object" "plaintext_creds" {
+  bucket  = aws_s3_bucket.insecure_bucket.id
+  key     = "config/creds.txt"
+  content = <<-EOF
+    username=admin
+    password=PlaintextPassword123!
+    api_token=test_api_token_FAKE987654321
+  EOF
+  acl     = "public-read"
 }
 
-# BAD: S3 bucket with replication to public bucket
-resource "aws_s3_bucket_replication_configuration" "bad_replication" {
-  role   = aws_iam_role.admin_role.arn
+# BAD: Bucket ACL explicitly allowing everyone
+resource "aws_s3_bucket_acl" "explicit_public_acl" {
   bucket = aws_s3_bucket.insecure_bucket.id
+  acl    = "public-read-write"
+}
+
+# BAD: Replication configuration pointing to untrusted account
+resource "aws_s3_bucket" "untrusted_bucket" {
+  bucket = "untrusted-destination-bucket-12345"
+}
+
+resource "aws_s3_bucket_replication_configuration" "untrusted_replication" {
+  depends_on = [aws_s3_bucket_public_access_block.insecure_public_access_block]
+  role       = aws_iam_role.admin_role.arn
+  bucket     = aws_s3_bucket.insecure_bucket.id
 
   rule {
-    id     = "replicate-to-public"
+    id     = "replicate-all"
     status = "Enabled"
+
+    delete_marker_replication {
+      status = "Disabled"
+    }
 
     destination {
-      bucket        = aws_s3_bucket.public_rw_bucket.arn
+      bucket        = aws_s3_bucket.untrusted_bucket.arn
       storage_class = "STANDARD"
+      account       = "123456789012" # BAD: Hardcoded account
     }
-    
-    # BAD: Replicating to a public bucket
   }
 }
 
-# BAD: S3 bucket notification to public SNS topic
-resource "aws_s3_bucket_notification" "public_notification" {
-  bucket = aws_s3_bucket.insecure_bucket.id
-
-  topic {
-    topic_arn = aws_sns_topic.public_topic.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-  
-  # BAD: Notifications sent to public topic
-}
-
-# BAD: S3 bucket with no access logging
-resource "aws_s3_bucket" "no_logging" {
-  bucket = "no-logging-bucket-12345"
-  
-  # BAD: No logging configuration
-  # BAD: Cannot track access patterns
-}
-
-# BAD: S3 bucket with lifecycle policy that deletes too quickly
-resource "aws_s3_bucket_lifecycle_configuration" "aggressive_deletion" {
-  bucket = aws_s3_bucket.insecure_bucket.id
+# BAD: S3 bucket lifecycle that archives immediately without review
+resource "aws_s3_bucket_lifecycle_configuration" "immediate_glacier" {
+  bucket = aws_s3_bucket.untrusted_bucket.id
 
   rule {
-    id     = "delete-quickly"
+    id     = "archive-immediately"
     status = "Enabled"
 
-    expiration {
-      days = 1  # BAD: Deletes objects after 1 day
+    transition {
+      days          = 0
+      storage_class = "GLACIER"
     }
-    
-    # BAD: No transition to cheaper storage
   }
 }
