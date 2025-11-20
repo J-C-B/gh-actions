@@ -275,3 +275,55 @@ resource "aws_instance" "imds_disabled_instance" {
   # BAD: No monitoring or backup strategy
 }
 
+# BAD: IAM user with inline admin policy and exposed keys
+resource "aws_iam_user" "legacy_user" {
+  name = "legacy-admin"
+  path = "/legacy/"
+  tags = {
+    Environment = "legacy"
+  }
+}
+
+resource "aws_iam_user_policy" "legacy_admin_policy" {
+  name = "legacy-admin-policy"
+  user = aws_iam_user.legacy_user.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "*"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_access_key" "legacy_user_key" {
+  user = aws_iam_user.legacy_user.name
+}
+
+# BAD: Store IAM access key in plain text SSM parameter
+resource "aws_ssm_parameter" "plain_iam_key" {
+  name  = "/legacy/iam_key"
+  type  = "String"  # BAD: Should be SecureString
+  value = aws_iam_access_key.legacy_user_key.secret
+}
+
+# BAD: EC2 instance enabling password authentication and root login
+resource "aws_instance" "password_enabled_instance" {
+  ami           = "ami-0abcdef1234567890"
+  instance_type = "t2.micro"
+  subnet_id     = aws_default_subnet.insecure_subnet.id
+
+  user_data = <<-EOF
+    #!/bin/bash
+    sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    systemctl restart sshd
+    echo 'root:password123' | chpasswd
+  EOF
+
+  vpc_security_group_ids = [aws_security_group.insecure_sg.id]
+}
+
