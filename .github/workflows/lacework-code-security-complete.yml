@@ -7,6 +7,7 @@ permissions:
 
 env:
   LW_ACCOUNT_NAME: ${{ secrets.LW_ACCOUNT_NAME }}
+  LW_SUBACCOUNT_NAME: ${{ secrets.LW_SUBACCOUNT_NAME }}
   LW_API_KEY: ${{ secrets.LW_API_KEY }}
   LW_API_SECRET: ${{ secrets.LW_API_SECRET }}
 
@@ -41,14 +42,3 @@ jobs:
         uses: lacework/code-security-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
-  push-results:
-    runs-on: ubuntu-latest
-    name: Run analysis
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-      - name: Analyze
-        uses: lacework/code-security-action@v1
-        with:
-          target: push          
