@@ -363,4 +363,27 @@ resource "google_compute_instance_template" "exposed_template" {
   }
 }
 
+# BAD: Cloud Scheduler job calling public endpoint with hardcoded token
+resource "google_cloud_scheduler_job" "public_job" {
+  name      = "public-job"
+  schedule  = "*/10 * * * *"
+  time_zone = "UTC"
+  http_target {
+    uri         = "https://public-api.example.com/run"
+    http_method = "POST"
+    headers = {
+      "Authorization" = "Bearer hardcoded_token_123"
+    }
+    body = base64encode("{\"action\":\"sync\"}")
+  }
+}
+
+# BAD: Cloud Storage bucket with force_destroy true and public IAM
+resource "google_storage_bucket" "force_destroy_bucket" {
+  name          = "force-destroy-bucket-bad"
+  location      = "US"
+  force_destroy = true
+  uniform_bucket_level_access = false
+}
+
  

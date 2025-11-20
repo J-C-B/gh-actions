@@ -198,3 +198,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "immediate_glacier" {
     }
   }
 }
+
+# BAD: Compliance bucket with object lock disabled storing PII
+resource "aws_s3_bucket" "compliance_bucket" {
+  bucket = "compliance-bucket-no-lock"
+  object_lock_enabled = false
+}
+
+resource "aws_s3_bucket_object" "pii_dump" {
+  bucket = aws_s3_bucket.compliance_bucket.id
+  key    = "exports/patient-data.csv"
+  content = "name,ssn\nAlice,123-45-6789\nBob,987-65-4321"
+  acl     = "private"
+}

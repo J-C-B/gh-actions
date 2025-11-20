@@ -184,6 +184,43 @@ resource "aws_iam_instance_profile" "bad_profile" {
   role = aws_iam_role.admin_role.name  # BAD: Using admin role
 }
 
+# BAD: EC2 instance with public AMI sharing sensitive snapshot
+resource "aws_ami_launch_permission" "public_ami" {
+  image_id   = "ami-0abcdef1234567890"
+  account_id = "*"
+}
+
+# BAD: EC2 instance that disables ufw/iptables and exposes services
+resource "aws_instance" "no_firewall_instance" {
+  ami           = "ami-0abcdef1234567890"
+  instance_type = "t3.micro"
+  subnet_id     = aws_default_subnet.insecure_subnet.id
+  associate_public_ip_address = true
+
+  vpc_security_group_ids = [aws_security_group.insecure_sg.id]
+
+  user_data = <<-EOF
+    #!/bin/bash
+    ufw disable
+    iptables -F
+    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+    service ssh restart
+  EOF
+}
+
+# BAD: Bastion host with shared credentials
+resource "aws_instance" "shared_bastion" {
+  ami           = "ami-0abcdef1234567890"
+  instance_type = "t3.small"
+  subnet_id     = aws_default_subnet.insecure_subnet.id
+  key_name      = "shared-bastion-key"
+  user_data = <<-EOF
+    #!/bin/bash
+    useradd devs
+    echo "devs:changeme" | chpasswd
+  EOF
+}
+
 # BAD: EC2 instance that writes private keys to disk
 resource "aws_instance" "debug_jump_box" {
   ami           = "ami-0abcdef1234567890"
