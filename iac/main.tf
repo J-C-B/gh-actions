@@ -136,4 +136,109 @@ resource "google_project_iam_binding" "iam-role" {
 		]
 }
 
+# BAD: IAM binding with overly permissive role
+resource "google_project_iam_binding" "admin_binding" {
+  project = var.project
+  role    = "roles/owner"  # BAD: Owner role is too permissive
+  
+  members = [
+    "user:admin@example.com",
+    "serviceAccount:${google_service_account.service_account.email}",
+  ]
+}
+
+# BAD: Firewall rule allowing all traffic
+resource "google_compute_firewall" "allow_all" {
+  name    = "allow-all-traffic"
+  network = google_compute_network.network.name
+  
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]  # BAD: All TCP ports
+  }
+  
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]  # BAD: All UDP ports
+  }
+  
+  allow {
+    protocol = "icmp"
+  }
+  
+  source_ranges = ["0.0.0.0/0"]  # BAD: From anywhere
+}
+
+# BAD: Compute instance with public IP and no firewall restrictions
+resource "google_compute_instance" "exposed_instance" {
+  name         = "exposed-instance"
+  machine_type = "e2-micro"
+  zone         = "us-central1-a"
+
+  boot_disk {
+    initialize_params {
+      image = "debian-cloud/debian-9"
+    }
+  }
+
+  network_interface {
+    network = google_compute_network.network.name
+    access_config {
+      # BAD: Public IP with no restrictions
+    }
+  }
+  
+  # BAD: Service account with too many permissions
+  service_account {
+    email  = google_service_account.service_account.email
+    scopes = ["cloud-platform"]  # BAD: Full cloud platform access
+  }
+}
+
+# BAD: Storage bucket with public access
+resource "google_storage_bucket" "public_bucket" {
+  name          = "public-bucket-12345"
+  location      = "US"
+  force_destroy = true
+  
+  # BAD: Public access
+  uniform_bucket_level_access = false
+}
+
+resource "google_storage_bucket_iam_binding" "public_binding" {
+  bucket = google_storage_bucket.public_bucket.name
+  role   = "roles/storage.objectViewer"
+  
+  members = [
+    "allUsers",  # BAD: Public access
+  ]
+}
+
+# BAD: Cloud SQL instance with public IP and weak password
+resource "google_sql_database_instance" "public_db" {
+  name             = "public-database-instance"
+  database_version = "MYSQL_8_0"
+  region           = "us-central1"
+  
+  settings {
+    tier = "db-f1-micro"
+    
+    ip_configuration {
+      ipv4_enabled    = true  # BAD: Public IP enabled
+      authorized_networks {
+        value = "0.0.0.0/0"  # BAD: Access from anywhere
+      }
+    }
+    
+    # BAD: No backup configuration
+    # BAD: No encryption configuration
+  }
+}
+
+resource "google_sql_user" "weak_password_user" {
+  name     = "admin"
+  instance = google_sql_database_instance.public_db.name
+  password = "password123"  # BAD: Weak password
+}
+
  
